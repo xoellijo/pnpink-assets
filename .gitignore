@@ -1,0 +1,18 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python / tooling
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Editors
+.vscode/*.log
+
+# Local previews and temporary exports
+*_output.svg
+*.tmp
+*.bak
