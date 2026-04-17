@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 from html import escape
 from pathlib import Path
@@ -16,11 +17,12 @@ THUMB_DIR = OUT / "_thumbs"
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"}
 SKIP_DIRS = {".git", ".github", ".vscode", "docs", "tools", "__pycache__"}
 BASE_URL = "https://raw.githubusercontent.com/xoellijo/pnpink-assets/main"
+SERIES_RE = re.compile(r"^(.*?)(\d+)$")
 
 
 def iter_asset_files(root: Path):
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".")]
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith('.')]
         cur = Path(dirpath)
         for name in sorted(filenames):
             p = cur / name
@@ -34,17 +36,15 @@ def slugify(path_str: str) -> str:
 
 def build_dirs(root: Path):
     dirs: dict[str, list[dict[str, str]]] = {}
-    thumbs: dict[str, str] = {}
     for path in iter_asset_files(root):
         rel = path.relative_to(root).as_posix()
         d = path.relative_to(root).parent.as_posix()
         stem = path.stem
         ext = path.suffix.lower().lstrip('.')
         dirs.setdefault(d, []).append({"stem": stem, "ext": ext, "rel": rel})
-        thumbs.setdefault(d, rel)
     for k in list(dirs.keys()):
         dirs[k] = sorted(dirs[k], key=lambda x: (x["stem"].lower(), x["ext"].lower()))
-    return dict(sorted(dirs.items())), thumbs
+    return dict(sorted(dirs.items()))
 
 
 def write_index_json(dirs: dict[str, list[dict[str, str]]]):
@@ -70,6 +70,43 @@ def copy_thumb(rel_path: str, key: str) -> str:
     return dst.relative_to(OUT).as_posix()
 
 
+def _ranges(nums: list[int]) -> str:
+    nums = sorted(set(nums))
+    if not nums:
+        return ""
+    chunks = []
+    start = prev = nums[0]
+    for n in nums[1:]:
+        if n == prev + 1:
+            prev = n
+            continue
+        chunks.append(f"{start}..{prev}" if start != prev else str(start))
+        start = prev = n
+    chunks.append(f"{start}..{prev}" if start != prev else str(start))
+    return ",".join(chunks)
+
+
+def compact_name_labels(stems: list[str], *, limit: int = 18) -> list[str]:
+    singles: list[str] = []
+    grouped: dict[str, list[int]] = {}
+    for stem in sorted(set(stems), key=str.lower):
+        m = SERIES_RE.match(stem)
+        if not m:
+            singles.append(stem)
+            continue
+        prefix, num = m.group(1), int(m.group(2))
+        grouped.setdefault(prefix, []).append(num)
+    labels: list[str] = []
+    for prefix in sorted(grouped.keys(), key=str.lower):
+        nums = grouped[prefix]
+        if len(nums) == 1:
+            labels.append(f"{prefix}{nums[0]}")
+        else:
+            labels.append(f"{prefix}[{_ranges(nums)}]")
+    labels.extend(sorted(singles, key=str.lower))
+    return labels[:limit]
+
+
 def page_shell(title: str, body: str, back_href: str = "../index.html") -> str:
     return f'''<!doctype html>
 <html lang="en">
@@ -82,21 +119,28 @@ def page_shell(title: str, body: str, back_href: str = "../index.html") -> str:
     * {{ box-sizing:border-box; }}
     body {{ margin:0; font-family:Georgia, "Times New Roman", serif; color:var(--ink); background:linear-gradient(180deg,#f8f3e9 0%,#efe6d3 100%); }}
     a {{ color:inherit; text-decoration:none; }}
-    header {{ padding:40px 24px 20px; max-width:1180px; margin:0 auto; }}
-    .back {{ color:var(--accent); font-size:14px; }}
+    header {{ padding:38px 24px 18px; max-width:1180px; margin:0 auto; }}
+    .back {{ color:var(--accent); font-size:14px; margin-bottom:6px; }}
     h1 {{ margin:8px 0 10px; font-size:clamp(28px,4.6vw,52px); line-height:1; }}
     .lead {{ color:var(--muted); max-width:760px; font-size:18px; }}
+    .meta {{ margin-top:14px; color:var(--accent); font-size:14px; }}
     main {{ max-width:1180px; margin:0 auto; padding:8px 24px 64px; }}
-    .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }}
-    .card {{ background:var(--card); border:1px solid var(--line); border-radius:20px; overflow:hidden; box-shadow:0 10px 30px rgba(63,44,14,.08); display:block; }}
-    .thumb-wrap {{ height:220px; background:#e8decb; display:flex; align-items:center; justify-content:center; }}
+    .grid {{ display:grid; gap:18px; }}
+    .grid.collections {{ grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }}
+    .grid.assets {{ grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); }}
+    .card {{ background:var(--card); border:1px solid var(--line); border-radius:18px; overflow:hidden; box-shadow:0 10px 30px rgba(63,44,14,.08); display:block; }}
+    .card.collection .thumb-wrap {{ height:150px; }}
+    .card.asset .thumb-wrap {{ height:170px; }}
+    .thumb-wrap {{ background:#e8decb; display:flex; align-items:center; justify-content:center; }}
     .thumb-wrap img {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .thumb.empty {{ color:var(--muted); font-style:italic; }}
-    .body {{ padding:16px 18px 18px; }}
-    h2 {{ margin:0 0 8px; font-size:22px; }}
-    p {{ margin:0; color:var(--muted); }}
-    .chips {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }}
-    code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:4px 9px; font-size:12px; }}
+    .body {{ padding:14px 16px 16px; }}
+    h2 {{ margin:0 0 6px; font-size:20px; }}
+    .card.asset h2 {{ font-size:17px; }}
+    p {{ margin:0; color:var(--muted); font-size:14px; }}
+    .chips {{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; }}
+    code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:3px 8px; font-size:11px; }}
+    .more {{ color:var(--accent); font-size:12px; }}
   </style>
 </head>
 <body>
@@ -121,22 +165,23 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
         for item in items:
             raw_url = f"{BASE_URL}/{item['rel']}"
             item_cards.append(
-                f'<a class="card" href="{escape(raw_url)}" target="_blank" rel="noopener"><div class="thumb-wrap"><img src="{escape(raw_url)}" alt="{escape(item["stem"])}" loading="lazy"></div><div class="body"><h2>{escape(item["stem"])}</h2><p>{escape(item["rel"])}</p></div></a>'
+                f'<a class="card asset" href="{escape(raw_url)}" target="_blank" rel="noopener"><div class="thumb-wrap"><img src="{escape(raw_url)}" alt="{escape(item["stem"])}" loading="lazy"></div><div class="body"><h2>{escape(item["stem"])}</h2><p>{escape(item["ext"])}</p></div></a>'
             )
         coll_html = page_shell(
             f"PnPInk Assets - {directory}",
-            f'<h1>{escape(directory)}</h1><div class="lead">{len(items)} assets in this folder. Click any item to open the raw file.</div><main><div class="grid">{"".join(item_cards)}</div></main>',
+            f'<h1>{escape(directory)}</h1><div class="lead">{len(items)} assets in this folder. Click any item to open the raw file.</div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
             back_href='../../index.html',
         )
         (coll_subdir / 'index.html').write_text(coll_html, encoding='utf-8')
-        names = " ".join(f"<code>{escape(x['stem'])}</code>" for x in items[:24])
-        more = f' <span class="more">+{len(items)-24} more</span>' if len(items) > 24 else ''
+        labels = compact_name_labels([x['stem'] for x in items], limit=14)
+        names = " ".join(f"<code>{escape(label)}</code>" for label in labels)
+        more = f' <span class="more">+{len(items)-len(labels)} more</span>' if len(items) > len(labels) else ''
         cards.append(
-            f'<a class="card" href="collections/{escape(slug)}/index.html"><div class="thumb-wrap">{preview_html}</div><div class="body"><h2>{escape(directory)}</h2><p>{len(items)} assets</p><div class="chips">{names}{more}</div></div></a>'
+            f'<a class="card collection" href="collections/{escape(slug)}/index.html"><div class="thumb-wrap">{preview_html}</div><div class="body"><h2>{escape(directory)}</h2><p>{len(items)} assets</p><div class="chips">{names}{more}</div></div></a>'
         )
     index_html = page_shell(
         'PnPInk Assets',
-        '<h1>PnPInk Assets</h1><div class="lead">Static gallery and compact index for the public asset repository used by <code>pnp://</code>.</div><div class="meta"><a href="assets-index.json">assets-index.json</a></div><main><div class="grid">' + ''.join(cards) + '</div></main>',
+        '<h1>PnPInk Assets</h1><div class="lead">Asset repository for <code>PnPInk</code>, intended for simple <code>pnp://</code> source paths and practical tabletop workflows such as decks, counters, overlays, icons, and reusable card components.</div><div class="meta"><a href="assets-index.json">assets-index.json</a></div><main><div class="grid collections">' + ''.join(cards) + '</div></main>',
         back_href='#',
     ).replace('<div class="back"><a href="#">&larr; Back</a></div>', '')
     INDEX_HTML.write_text(index_html, encoding='utf-8')
@@ -144,7 +189,7 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
 
 def main():
     reset_output_dirs()
-    dirs, thumbs = build_dirs(ROOT)
+    dirs = build_dirs(ROOT)
     write_index_json(dirs)
     render_collection_pages(dirs)
 
