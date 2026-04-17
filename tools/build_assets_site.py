@@ -17,6 +17,9 @@ THUMB_DIR = OUT / "_thumbs"
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"}
 SKIP_DIRS = {".git", ".github", ".vscode", "docs", "tools", "__pycache__"}
 BASE_URL = "https://raw.githubusercontent.com/xoellijo/pnpink-assets/main"
+PNPINK_REPO = "https://github.com/xoellijo/pnpink"
+PNPINK_GUIDE = "https://xoellijo.github.io/pnpink/"
+PNPINK_HELP = "https://xoellijo.github.io/pnpink/quickstart/"
 SERIES_RE = re.compile(r"^(.*?)(\d+)$")
 
 
@@ -34,6 +37,12 @@ def slugify(path_str: str) -> str:
     return path_str.replace('/', '__').replace('\\', '__').replace(' ', '_')
 
 
+def dir_sort_key(path_str: str):
+    parts = path_str.split('/') if path_str else []
+    is_ia = 1 if parts and parts[0].upper() == 'IA' else 0
+    return (is_ia, path_str.lower())
+
+
 def build_dirs(root: Path):
     dirs: dict[str, list[dict[str, str]]] = {}
     for path in iter_asset_files(root):
@@ -44,7 +53,7 @@ def build_dirs(root: Path):
         dirs.setdefault(d, []).append({"stem": stem, "ext": ext, "rel": rel})
     for k in list(dirs.keys()):
         dirs[k] = sorted(dirs[k], key=lambda x: (x["stem"].lower(), x["ext"].lower()))
-    return dict(sorted(dirs.items()))
+    return {k: dirs[k] for k in sorted(dirs.keys(), key=dir_sort_key)}
 
 
 def write_index_json(dirs: dict[str, list[dict[str, str]]]):
@@ -86,7 +95,7 @@ def _ranges(nums: list[int]) -> str:
     return ",".join(chunks)
 
 
-def compact_name_labels(stems: list[str], *, limit: int = 18) -> list[str]:
+def compact_name_labels(stems: list[str], *, limit: int = 12) -> list[str]:
     singles: list[str] = []
     grouped: dict[str, list[int]] = {}
     for stem in sorted(set(stems), key=str.lower):
@@ -115,32 +124,40 @@ def page_shell(title: str, body: str, back_href: str = "../index.html") -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(title)}</title>
   <style>
-    :root {{ --bg:#f4efe4; --ink:#1f2a2a; --muted:#5f6b6b; --card:#fffaf0; --line:#d8cfbd; --accent:#305c53; }}
+    :root {{ --bg:#f4efe4; --ink:#1f2a2a; --muted:#5f6b6b; --card:#fffaf0; --line:#d8cfbd; --accent:#305c53; --accent2:#7a4f2f; }}
     * {{ box-sizing:border-box; }}
     body {{ margin:0; font-family:Georgia, "Times New Roman", serif; color:var(--ink); background:linear-gradient(180deg,#f8f3e9 0%,#efe6d3 100%); }}
     a {{ color:inherit; text-decoration:none; }}
-    header {{ padding:38px 24px 18px; max-width:1180px; margin:0 auto; }}
-    .back {{ color:var(--accent); font-size:14px; margin-bottom:6px; }}
-    h1 {{ margin:8px 0 10px; font-size:clamp(28px,4.6vw,52px); line-height:1; }}
-    .lead {{ color:var(--muted); max-width:760px; font-size:18px; }}
-    .meta {{ margin-top:14px; color:var(--accent); font-size:14px; }}
-    main {{ max-width:1180px; margin:0 auto; padding:8px 24px 64px; }}
-    .grid {{ display:grid; gap:18px; }}
-    .grid.collections {{ grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); }}
-    .grid.assets {{ grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); }}
-    .card {{ background:var(--card); border:1px solid var(--line); border-radius:18px; overflow:hidden; box-shadow:0 10px 30px rgba(63,44,14,.08); display:block; }}
-    .card.collection .thumb-wrap {{ height:150px; }}
-    .card.asset .thumb-wrap {{ height:170px; }}
+    header {{ padding:28px 22px 12px; max-width:1220px; margin:0 auto; }}
+    .back {{ color:var(--accent); font-size:13px; margin-bottom:6px; }}
+    h1 {{ margin:6px 0 10px; font-size:clamp(20px,2.4vw,30px); line-height:1.05; letter-spacing:.02em; }}
+    .lead {{ color:var(--muted); max-width:960px; font-size:15px; line-height:1.45; }}
+    .meta {{ margin-top:10px; color:var(--accent); font-size:13px; display:flex; flex-wrap:wrap; gap:14px; }}
+    .meta a {{ color:var(--accent2); text-decoration:underline; text-underline-offset:2px; }}
+    .example {{ margin-top:12px; background:#f3ead7; border:1px solid #decfb1; border-radius:14px; padding:10px 12px; font-size:13px; line-height:1.45; }}
+    .example code {{ font-size:12px; }}
+    main {{ max-width:1220px; margin:0 auto; padding:8px 22px 56px; }}
+    .grid {{ display:grid; gap:14px; }}
+    .grid.collections {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
+    .grid.assets {{ grid-template-columns:repeat(4,minmax(0,1fr)); }}
+    .card {{ background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 8px 22px rgba(63,44,14,.07); display:block; }}
+    .card.collection .thumb-wrap {{ height:118px; }}
+    .card.asset .thumb-wrap {{ height:138px; }}
     .thumb-wrap {{ background:#e8decb; display:flex; align-items:center; justify-content:center; }}
     .thumb-wrap img {{ width:100%; height:100%; object-fit:contain; display:block; }}
-    .thumb.empty {{ color:var(--muted); font-style:italic; }}
-    .body {{ padding:14px 16px 16px; }}
-    h2 {{ margin:0 0 6px; font-size:20px; }}
-    .card.asset h2 {{ font-size:17px; }}
-    p {{ margin:0; color:var(--muted); font-size:14px; }}
-    .chips {{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; }}
-    code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:3px 8px; font-size:11px; }}
-    .more {{ color:var(--accent); font-size:12px; }}
+    .thumb.empty {{ color:var(--muted); font-style:italic; font-size:13px; }}
+    .body {{ padding:10px 12px 12px; }}
+    .titleline {{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:6px; }}
+    h2 {{ margin:0; font-size:16px; line-height:1.15; }}
+    .card.asset h2 {{ font-size:14px; }}
+    p {{ margin:0; color:var(--muted); font-size:12px; }}
+    .chips {{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; }}
+    code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:2px 7px; font-size:10px; }}
+    .more {{ color:var(--accent); font-size:11px; }}
+    @media (min-width: 860px) {{ .grid.collections {{ grid-template-columns:repeat(4,minmax(0,1fr)); }} }}
+    @media (max-width: 980px) {{ .grid.assets {{ grid-template-columns:repeat(3,minmax(0,1fr)); }} }}
+    @media (max-width: 780px) {{ .grid.collections {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .grid.assets {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
+    @media (max-width: 520px) {{ .grid.collections, .grid.assets {{ grid-template-columns:1fr; }} .titleline {{ display:block; }} }}
   </style>
 </head>
 <body>
@@ -165,25 +182,31 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
         for item in items:
             raw_url = f"{BASE_URL}/{item['rel']}"
             item_cards.append(
-                f'<a class="card asset" href="{escape(raw_url)}" target="_blank" rel="noopener"><div class="thumb-wrap"><img src="{escape(raw_url)}" alt="{escape(item["stem"])}" loading="lazy"></div><div class="body"><h2>{escape(item["stem"])}</h2><p>{escape(item["ext"])}</p></div></a>'
+                f'<a class="card asset" href="{escape(raw_url)}" target="_blank" rel="noopener"><div class="thumb-wrap"><img src="{escape(raw_url)}" alt="{escape(item["stem"])}" loading="lazy"></div><div class="body"><div class="titleline"><h2>{escape(item["stem"])}</h2><p>{escape(item["ext"])} file</p></div></div></a>'
             )
         coll_html = page_shell(
             f"PnPInk Assets - {directory}",
-            f'<h1>{escape(directory)}</h1><div class="lead">{len(items)} assets in this folder. Click any item to open the raw file.</div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
+            f'<h1>{escape(directory)}</h1><div class="lead">Assets for direct use from <a href="{escape(PNPINK_REPO)}"><code>PnPInk</code></a>. Click any item to open the raw file.</div><div class="meta"><a href="{escape(PNPINK_REPO)}">PnPInk repository</a><a href="{escape(PNPINK_GUIDE)}">Guide</a><a href="{escape(PNPINK_HELP)}">Help / Quickstart</a></div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
             back_href='../../index.html',
         )
         (coll_subdir / 'index.html').write_text(coll_html, encoding='utf-8')
-        labels = compact_name_labels([x['stem'] for x in items], limit=14)
+        labels = compact_name_labels([x['stem'] for x in items], limit=10)
         names = " ".join(f"<code>{escape(label)}</code>" for label in labels)
         more = f' <span class="more">+{len(items)-len(labels)} more</span>' if len(items) > len(labels) else ''
         cards.append(
-            f'<a class="card collection" href="collections/{escape(slug)}/index.html"><div class="thumb-wrap">{preview_html}</div><div class="body"><h2>{escape(directory)}</h2><p>{len(items)} assets</p><div class="chips">{names}{more}</div></div></a>'
+            f'<a class="card collection" href="collections/{escape(slug)}/index.html"><div class="thumb-wrap">{preview_html}</div><div class="body"><div class="titleline"><h2>{escape(directory)}</h2><p>{len(items)} assets</p></div><div class="chips">{names}{more}</div></div></a>'
         )
-    index_html = page_shell(
-        'PnPInk Assets',
-        '<h1>PnPInk Assets</h1><div class="lead">Asset repository for <code>PnPInk</code>, intended for simple <code>pnp://</code> source paths and practical tabletop workflows such as decks, counters, overlays, icons, and reusable card components.</div><div class="meta"><a href="assets-index.json">assets-index.json</a></div><main><div class="grid collections">' + ''.join(cards) + '</div></main>',
-        back_href='#',
-    ).replace('<div class="back"><a href="#">&larr; Back</a></div>', '')
+    intro = (
+        '<h1>PnPInk Assets</h1>'
+        '<div class="lead">This repository is made for <a href="' + escape(PNPINK_REPO) + '"><code>PnPInk</code></a>. '
+        'With PnPInk you do not need to download and place images by hand: you can write something like '
+        '<code>@{pnp://egg}~i7^</code> and let PnPInk fetch, rotate, scale and place that asset automatically '
+        'into one region of a card or across hundreds of generated cards.</div>'
+        '<div class="meta"><a href="' + escape(PNPINK_REPO) + '">PnPInk repository</a><a href="' + escape(PNPINK_GUIDE) + '">Guide</a><a href="' + escape(PNPINK_HELP) + '">Help / Quickstart</a><a href="assets-index.json">assets-index.json</a></div>'
+        '<div class="example"><strong>Example</strong>: <code>@{pnp://egg}~i7^</code> in a PnPInk dataset can resolve an asset from this repository and fit it into a placeholder automatically while generating a whole deck.</div>'
+        '<main><div class="grid collections">' + ''.join(cards) + '</div></main>'
+    )
+    index_html = page_shell('PnPInk Assets', intro, back_href='#').replace('<div class="back"><a href="#">&larr; Back</a></div>', '')
     INDEX_HTML.write_text(index_html, encoding='utf-8')
 
 
@@ -196,4 +219,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
