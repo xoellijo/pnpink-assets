@@ -20,6 +20,7 @@ BASE_URL = "https://raw.githubusercontent.com/xoellijo/pnpink-assets/main"
 PNPINK_REPO = "https://github.com/xoellijo/pnpink"
 PNPINK_GUIDE = "https://xoellijo.github.io/pnpink/"
 PNPINK_HELP = "https://xoellijo.github.io/pnpink/quickstart/"
+PNPINK_FORUM = "https://boardgamegeek.com/guild/4569"
 SERIES_RE = re.compile(r"^(.*?)(\d+)$")
 
 
@@ -154,7 +155,7 @@ def page_shell(title: str, body: str, back_href: str = "../index.html") -> str:
     .chips {{ display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:8px; }}
     code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:2px 7px; font-size:10px; }}
     .more {{ color:var(--accent); font-size:11px; }}
-    @media (min-width: 860px) {{ .grid.collections {{ grid-template-columns:repeat(4,minmax(0,1fr)); }} }}
+    @media (min-width: 860px) {{ .grid.collections {{ grid-template-columns:repeat(5,minmax(0,1fr)); }} }}
     @media (max-width: 980px) {{ .grid.assets {{ grid-template-columns:repeat(3,minmax(0,1fr)); }} }}
     @media (max-width: 780px) {{ .grid.collections {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} .grid.assets {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
     @media (max-width: 520px) {{ .grid.collections, .grid.assets {{ grid-template-columns:1fr; }} .titleline {{ display:block; }} }}
@@ -186,7 +187,7 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
             )
         coll_html = page_shell(
             f"PnPInk Assets - {directory}",
-            f'<h1>{escape(directory)}</h1><div class="lead">Assets for direct use from <a href="{escape(PNPINK_REPO)}"><code>PnPInk</code></a>. Click any item to open the raw file.</div><div class="meta"><a href="{escape(PNPINK_REPO)}">PnPInk repository</a><a href="{escape(PNPINK_GUIDE)}">Guide</a><a href="{escape(PNPINK_HELP)}">Help / Quickstart</a></div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
+            f'<h1>{escape(directory)}</h1><div class="lead">Assets for direct use from <a href="{escape(PNPINK_REPO)}"><code>PnPInk</code></a>. Click any item to open the raw file.</div><div class="meta"><a href="{escape(PNPINK_REPO)}">PnPInk repository</a><a href="{escape(PNPINK_GUIDE)}">Guide</a><a href="{escape(PNPINK_HELP)}">Help / Quickstart</a><a href="{escape(PNPINK_FORUM)}">Forum</a></div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
             back_href='../../index.html',
         )
         (coll_subdir / 'index.html').write_text(coll_html, encoding='utf-8')
@@ -198,12 +199,9 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
         )
     intro = (
         '<h1>PnPInk Assets</h1>'
-        '<div class="lead">This repository is made for <a href="' + escape(PNPINK_REPO) + '"><code>PnPInk</code></a>. '
-        'With PnPInk you do not need to download and place images by hand: you can write something like '
-        '<code>@{pnp://egg}~i7^</code> and let PnPInk fetch, rotate, scale and place that asset automatically '
-        'into one region of a card or across hundreds of generated cards.</div>'
-        '<div class="meta"><a href="' + escape(PNPINK_REPO) + '">PnPInk repository</a><a href="' + escape(PNPINK_GUIDE) + '">Guide</a><a href="' + escape(PNPINK_HELP) + '">Help / Quickstart</a><a href="assets-index.json">assets-index.json</a></div>'
-        '<div class="example"><strong>Example</strong>: <code>@{pnp://egg}~i7^</code> in a PnPInk dataset can resolve an asset from this repository and fit it into a placeholder automatically while generating a whole deck.</div>'
+        '<div class="lead">This repository is made for <a href="' + escape(PNPINK_REPO) + '"><code>PnPInk</code></a>. The idea is to compose cards and other tabletop components from reusable visual pieces that PnPInk can place automatically from datasets such as CSV or Google Sheets.</div>'
+        '<div class="meta"><a href="' + escape(PNPINK_REPO) + '">PnPInk repository</a><a href="' + escape(PNPINK_GUIDE) + '">Guide</a><a href="' + escape(PNPINK_HELP) + '">Help / Quickstart</a><a href="' + escape(PNPINK_FORUM) + '">Forum</a><a href="assets-index.json">assets-index.json</a></div>'
+        '<div class="example"><strong>PnPInk usage</strong>: instead of downloading and placing images by hand, you can reference assets directly from a dataset with tokens such as <code>@{pnp://egg}~i7^</code>, and let PnPInk fetch, rotate, scale and place them automatically across one card or a whole deck.</div>'
         '<main><div class="grid collections">' + ''.join(cards) + '</div></main>'
     )
     index_html = page_shell('PnPInk Assets', intro, back_href='#').replace('<div class="back"><a href="#">&larr; Back</a></div>', '')
