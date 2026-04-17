@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 from html import escape
 from pathlib import Path
 
@@ -9,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs"
 INDEX_JSON = OUT / "assets-index.json"
 INDEX_HTML = OUT / "index.html"
+COLL_DIR = OUT / "collections"
+THUMB_DIR = OUT / "_thumbs"
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"}
 SKIP_DIRS = {".git", ".github", ".vscode", "docs", "tools", "__pycache__"}
@@ -25,82 +28,127 @@ def iter_asset_files(root: Path):
                 yield p
 
 
+def slugify(path_str: str) -> str:
+    return path_str.replace('/', '__').replace('\\', '__').replace(' ', '_')
+
+
 def build_dirs(root: Path):
-    dirs: dict[str, list[str]] = {}
+    dirs: dict[str, list[dict[str, str]]] = {}
     thumbs: dict[str, str] = {}
     for path in iter_asset_files(root):
         rel = path.relative_to(root).as_posix()
         d = path.relative_to(root).parent.as_posix()
         stem = path.stem
-        dirs.setdefault(d, []).append(stem)
+        ext = path.suffix.lower().lstrip('.')
+        dirs.setdefault(d, []).append({"stem": stem, "ext": ext, "rel": rel})
         thumbs.setdefault(d, rel)
     for k in list(dirs.keys()):
-        dirs[k] = sorted(set(dirs[k]), key=str.lower)
+        dirs[k] = sorted(dirs[k], key=lambda x: (x["stem"].lower(), x["ext"].lower()))
     return dict(sorted(dirs.items())), thumbs
 
 
-def write_index_json(dirs: dict[str, list[str]]):
-    data = {"v": 1, "base": BASE_URL, "dirs": dirs}
+def write_index_json(dirs: dict[str, list[dict[str, str]]]):
+    compact_dirs = {k: [x["stem"] for x in vals] for k, vals in dirs.items()}
+    data = {"v": 1, "base": BASE_URL, "dirs": compact_dirs}
     OUT.mkdir(parents=True, exist_ok=True)
     INDEX_JSON.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
-def render_html(dirs: dict[str, list[str]], thumbs: dict[str, str]):
-    sections = []
-    for directory, names in dirs.items():
-        thumb = thumbs.get(directory, "")
-        thumb_url = f"{BASE_URL}/{thumb}" if thumb else ""
-        items = " ".join(f"<code>{escape(name)}</code>" for name in names[:24])
-        more = f" <span class=\"more\">+{len(names)-24} more</span>" if len(names) > 24 else ""
-        preview = f'<img src="{escape(thumb_url)}" alt="{escape(directory)}" loading="lazy">' if thumb_url else '<div class="thumb empty">No preview</div>'
-        sections.append(
-            f'<section class="card"><div class="thumb-wrap">{preview}</div><div class="body"><h2>{escape(directory)}</h2><p>{len(names)} assets</p><div class="chips">{items}{more}</div></div></section>'
-        )
-    html = f'''<!doctype html>
+def reset_output_dirs():
+    for p in (COLL_DIR, THUMB_DIR):
+        if p.exists():
+            shutil.rmtree(p)
+        p.mkdir(parents=True, exist_ok=True)
+
+
+def copy_thumb(rel_path: str, key: str) -> str:
+    src = ROOT / rel_path
+    ext = src.suffix.lower()
+    dst = THUMB_DIR / f"{slugify(key)}{ext}"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+    return dst.relative_to(OUT).as_posix()
+
+
+def page_shell(title: str, body: str, back_href: str = "../index.html") -> str:
+    return f'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PnPInk Assets</title>
+  <title>{escape(title)}</title>
   <style>
     :root {{ --bg:#f4efe4; --ink:#1f2a2a; --muted:#5f6b6b; --card:#fffaf0; --line:#d8cfbd; --accent:#305c53; }}
     * {{ box-sizing:border-box; }}
     body {{ margin:0; font-family:Georgia, "Times New Roman", serif; color:var(--ink); background:linear-gradient(180deg,#f8f3e9 0%,#efe6d3 100%); }}
-    header {{ padding:48px 24px 24px; max-width:1100px; margin:0 auto; }}
-    h1 {{ margin:0 0 10px; font-size:clamp(32px,5vw,58px); line-height:1; }}
+    a {{ color:inherit; text-decoration:none; }}
+    header {{ padding:40px 24px 20px; max-width:1180px; margin:0 auto; }}
+    .back {{ color:var(--accent); font-size:14px; }}
+    h1 {{ margin:8px 0 10px; font-size:clamp(28px,4.6vw,52px); line-height:1; }}
     .lead {{ color:var(--muted); max-width:760px; font-size:18px; }}
-    .meta {{ margin-top:16px; color:var(--accent); font-size:14px; }}
-    main {{ max-width:1100px; margin:0 auto; padding:8px 24px 64px; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }}
-    .card {{ background:var(--card); border:1px solid var(--line); border-radius:20px; overflow:hidden; box-shadow:0 10px 30px rgba(63,44,14,.08); }}
+    main {{ max-width:1180px; margin:0 auto; padding:8px 24px 64px; }}
+    .grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }}
+    .card {{ background:var(--card); border:1px solid var(--line); border-radius:20px; overflow:hidden; box-shadow:0 10px 30px rgba(63,44,14,.08); display:block; }}
     .thumb-wrap {{ height:220px; background:#e8decb; display:flex; align-items:center; justify-content:center; }}
     .thumb-wrap img {{ width:100%; height:100%; object-fit:contain; display:block; }}
     .thumb.empty {{ color:var(--muted); font-style:italic; }}
-    .body {{ padding:18px; }}
+    .body {{ padding:16px 18px 18px; }}
     h2 {{ margin:0 0 8px; font-size:22px; }}
-    p {{ margin:0 0 12px; color:var(--muted); }}
-    .chips {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }}
+    p {{ margin:0; color:var(--muted); }}
+    .chips {{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }}
     code {{ background:#efe5d1; border:1px solid #dfd1b6; border-radius:999px; padding:4px 9px; font-size:12px; }}
-    .more {{ color:var(--accent); font-size:12px; }}
   </style>
 </head>
 <body>
   <header>
-    <h1>PnPInk Assets</h1>
-    <div class="lead">Static gallery and compact index for the public asset repository used by <code>pnp://</code>.</div>
-    <div class="meta">Generated from repository folders. Index file: <a href="assets-index.json">assets-index.json</a></div>
+    <div class="back"><a href="{escape(back_href)}">&larr; Back</a></div>
+    {body}
   </header>
-  <main>{''.join(sections)}</main>
 </body>
 </html>
 '''
-    INDEX_HTML.write_text(html, encoding="utf-8")
+
+
+def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
+    cards = []
+    for directory, items in dirs.items():
+        slug = slugify(directory)
+        coll_subdir = COLL_DIR / slug
+        coll_subdir.mkdir(parents=True, exist_ok=True)
+        preview_rel = copy_thumb(items[0]["rel"], directory) if items else ""
+        preview_html = f'<img src="{escape(preview_rel)}" alt="{escape(directory)}" loading="lazy">' if preview_rel else '<div class="thumb empty">No preview</div>'
+        item_cards = []
+        for item in items:
+            raw_url = f"{BASE_URL}/{item['rel']}"
+            item_cards.append(
+                f'<a class="card" href="{escape(raw_url)}" target="_blank" rel="noopener"><div class="thumb-wrap"><img src="{escape(raw_url)}" alt="{escape(item["stem"])}" loading="lazy"></div><div class="body"><h2>{escape(item["stem"])}</h2><p>{escape(item["rel"])}</p></div></a>'
+            )
+        coll_html = page_shell(
+            f"PnPInk Assets - {directory}",
+            f'<h1>{escape(directory)}</h1><div class="lead">{len(items)} assets in this folder. Click any item to open the raw file.</div><main><div class="grid">{"".join(item_cards)}</div></main>',
+            back_href='../../index.html',
+        )
+        (coll_subdir / 'index.html').write_text(coll_html, encoding='utf-8')
+        names = " ".join(f"<code>{escape(x['stem'])}</code>" for x in items[:24])
+        more = f' <span class="more">+{len(items)-24} more</span>' if len(items) > 24 else ''
+        cards.append(
+            f'<a class="card" href="collections/{escape(slug)}/index.html"><div class="thumb-wrap">{preview_html}</div><div class="body"><h2>{escape(directory)}</h2><p>{len(items)} assets</p><div class="chips">{names}{more}</div></div></a>'
+        )
+    index_html = page_shell(
+        'PnPInk Assets',
+        '<h1>PnPInk Assets</h1><div class="lead">Static gallery and compact index for the public asset repository used by <code>pnp://</code>.</div><div class="meta"><a href="assets-index.json">assets-index.json</a></div><main><div class="grid">' + ''.join(cards) + '</div></main>',
+        back_href='#',
+    ).replace('<div class="back"><a href="#">&larr; Back</a></div>', '')
+    INDEX_HTML.write_text(index_html, encoding='utf-8')
 
 
 def main():
+    reset_output_dirs()
     dirs, thumbs = build_dirs(ROOT)
     write_index_json(dirs)
-    render_html(dirs, thumbs)
+    render_collection_pages(dirs)
 
 
 if __name__ == "__main__":
     main()
+
