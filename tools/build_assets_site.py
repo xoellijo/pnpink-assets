@@ -19,7 +19,6 @@ SKIP_DIRS = {".git", ".github", ".vscode", "docs", "tools", "__pycache__"}
 BASE_URL = "https://raw.githubusercontent.com/xoellijo/pnpink-assets/main"
 PNPINK_REPO = "https://github.com/xoellijo/pnpink"
 PNPINK_GUIDE = "https://xoellijo.github.io/pnpink/"
-PNPINK_HELP = "https://xoellijo.github.io/pnpink/quickstart/"
 PNPINK_FORUM = "https://boardgamegeek.com/guild/4569"
 SERIES_RE = re.compile(r"^(.*?)(\d+)$")
 
@@ -187,7 +186,7 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
             )
         coll_html = page_shell(
             f"PnPInk Assets - {directory}",
-            f'<h1>{escape(directory)}</h1><div class="lead">Assets for direct use from <a href="{escape(PNPINK_REPO)}"><code>PnPInk</code></a>. Click any item to open the raw file.</div><div class="meta"><a href="{escape(PNPINK_REPO)}">PnPInk repository</a><a href="{escape(PNPINK_GUIDE)}">Guide</a><a href="{escape(PNPINK_HELP)}">Help / Quickstart</a><a href="{escape(PNPINK_FORUM)}">Forum</a></div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
+            f'<h1>{escape(directory)}</h1><div class="lead">Assets for direct use from <a href="{escape(PNPINK_REPO)}"><code>PnPInk</code></a>. Click any item to open the raw file.</div><div class="meta"><a href="{escape(PNPINK_REPO)}">PnPInk</a><a href="{escape(PNPINK_GUIDE)}">Guide</a><a href="{escape(PNPINK_FORUM)}">Forum</a><a href="https://github.com/xoellijo/pnpink-assets">Assets</a></div><main><div class="grid assets">{"".join(item_cards)}</div></main>',
             back_href='../../index.html',
         )
         (coll_subdir / 'index.html').write_text(coll_html, encoding='utf-8')
@@ -200,7 +199,7 @@ def render_collection_pages(dirs: dict[str, list[dict[str, str]]]):
     intro = (
         '<h1>PnPInk Assets</h1>'
         '<div class="lead">This repository is made for <a href="' + escape(PNPINK_REPO) + '"><code>PnPInk</code></a>. The idea is to compose cards and other tabletop components from reusable visual pieces that PnPInk can place automatically from datasets such as CSV or Google Sheets.</div>'
-        '<div class="meta"><a href="' + escape(PNPINK_REPO) + '">PnPInk repository</a><a href="' + escape(PNPINK_GUIDE) + '">Guide</a><a href="' + escape(PNPINK_HELP) + '">Help / Quickstart</a><a href="' + escape(PNPINK_FORUM) + '">Forum</a><a href="assets-index.json">assets-index.json</a></div>'
+        '<div class="meta"><a href="' + escape(PNPINK_REPO) + '">PnPInk</a><a href="' + escape(PNPINK_GUIDE) + '">Guide</a><a href="' + escape(PNPINK_FORUM) + '">Forum</a><a href="https://github.com/xoellijo/pnpink-assets">Assets</a><a href="assets-index.json">assets-index.json</a></div>'
         '<div class="example"><strong>PnPInk usage</strong>: instead of downloading and placing images by hand, you can reference assets directly from a dataset with tokens such as <code>@{pnp://egg}~i7^</code>, and let PnPInk fetch, rotate, scale and place them automatically across one card or a whole deck.</div>'
         '<main><div class="grid collections">' + ''.join(cards) + '</div></main>'
     )
@@ -217,3 +216,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
